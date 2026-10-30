@@ -2,7 +2,7 @@
 phase: 1
 phase_name: CLI move
 updated: 2026-10-29
-last_commit: pending
+last_commit: 2a75f2e
 last_entry: 3
 ---
 
