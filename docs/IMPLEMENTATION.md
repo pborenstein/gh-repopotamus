@@ -89,6 +89,6 @@ Execution:
 - [ ] `new_name` support on collisions (maybe)
 - [ ] Owner completion from `gh api user/orgs` (same data as `gh org list`)
 - [ ] Post-move Pages rebuild: pick by `build_type` (`workflow` -> `gh workflow run` or rerun the last run; `legacy` -> POST `pages/builds`). Warn that baseurl/pathPrefix may need changing
-- [ ] README, usage examples
+- [x] README, usage examples (written early, during Phase 2 setup)
 - [ ] goreleaser / `gh extension` precompiled release workflow
 - [ ] Retire `xfer` and `xfer.sh`
