@@ -7,8 +7,8 @@ repopotamus is a `gh` extension (`gh repopotamus`) that transfers one or more re
 | Phase | Name | Status | Chronicle |
 |-------|------|--------|-----------|
 | 0 | Foundation | Complete | [phase-0-foundation.md](chronicles/phase-0-foundation.md) |
-| 1 | CLI move | Next | - |
-| 2 | TUI | Planned | - |
+| 1 | CLI move | Complete | [phase-1-cli-move.md](chronicles/phase-1-cli-move.md) |
+| 2 | TUI | Next | - |
 | 3 | Polish and release | Planned | - |
 
 ## Prior Art
@@ -48,7 +48,7 @@ Goal: a gh extension scaffold that authenticates through gh and can list a sourc
 - The repo resolves at its new owner before GitHub finishes the transfer. Transferring the *same* repo again within about 5-10 seconds gets 422 "Repository.data is invalid". Batches move each repo once, so they aren't affected
 - Transfer fails if the target already has a repo with the same name. `new_name` is an optional field and could be offered later
 
-## Phase 1: CLI move (current)
+## Phase 1: CLI move (complete)
 
 Command shape (draft):
 
@@ -73,9 +73,9 @@ Execution:
 - [x] Print a summary at the end: moved, failed (with the API error message), skipped
 - [x] Exit non-zero if anything failed
 - [x] `gh repopotamus list SRC [filters]` prints the names the selection matched (useful for piping)
-- [ ] Real `move` round trip with `test-repo`, including a 422 failure from moving back inside the settle window
+- [x] Real `move` round trip with `test-repo` (pborenstein to documentation-rodeo and back), run by Philip
 
-## Phase 2: TUI
+## Phase 2: TUI (current)
 
 - [ ] `gh repopotamus` with no args (or `tui`) asks for the source and destination owners
 - [ ] Multi-select list of source repos showing name, visibility, archived, language and last push
