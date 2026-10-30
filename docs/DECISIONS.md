@@ -99,3 +99,31 @@ Architectural decisions for this project. Search with `grep -i "keyword" docs/DE
 **Alternatives considered**: A throwaway script in scratch space (not repeatable); mocking the API with go-gh's gock support (doesn't catch real API behavior such as the 422 settle window).
 
 **Consequences**: Real-API checks have to be run on purpose with `-tags integration`. Selection and plan logic in Phase 1 should be written as pure functions so they can be unit tested offline.
+
+---
+
+### DEC-008: Moving every repo needs --all (2026-10-29)
+
+**Status**: Active
+
+**Context**: With no names, the filters apply to every repo in SRC. `move SRC DST` with no names and no filters would select the whole account.
+
+**Decision**: If there are no names and no filters, `move` refuses unless `--all` is passed. `list` has no such guard.
+
+**Alternatives considered**: Rely on the y/N prompt alone (one stray `-y` empties an account).
+
+**Consequences**: An extra flag in the rare case where moving everything is intended.
+
+---
+
+### DEC-009: Name collisions are skipped at plan time (2026-10-29)
+
+**Status**: Active
+
+**Context**: A transfer into an owner that already has a repo with the same name fails with 422. The same 422 also covers the settle window (Entry 3), so the error code alone doesn't say which one happened.
+
+**Decision**: `move` lists DST's repos too and marks collisions as skipped in the plan, with the reason. Names not found in SRC are also skipped in the plan, not treated as errors.
+
+**Alternatives considered**: Let the transfer fail and report the 422 (vaguer message, and it counts as a failure).
+
+**Consequences**: One more GraphQL listing per run. A 422 during execution now usually means the settle window or a race.

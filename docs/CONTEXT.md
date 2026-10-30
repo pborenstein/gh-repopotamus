@@ -2,34 +2,34 @@
 phase: 1
 phase_name: CLI move
 updated: 2026-10-29
-last_commit: 2a75f2e
-last_entry: 3
+last_commit: PENDING
+last_entry: 4
 ---
 
 ## Current Focus
 
-Phase 0 is complete: `gh repopotamus list OWNER [-l]` works, and `Transfer` passed a real round trip. Phase 1 is next: the `move` command.
+`gh repopotamus move SRC DST [REPO...]` is written and checked against GitHub with everything except a real transfer. Phase 1 closes once a real round trip passes.
 
 ## Active Tasks
 
-- [ ] `cmd/move.go`: `gh repopotamus move SRC DST [REPO...]`
-- [ ] Selection: names, stdin/`--from-file`, `--match`/`--regex`, metadata filters
-- [ ] Plan table, y/N confirm, `--yes`, `--dry-run`
-- [ ] Execute sequentially, continue on failure, summary, non-zero exit on any failure
+- [x] `cmd/move.go`, selection, plan table, confirm, `--yes`, `--dry-run`, summary, exit code
+- [x] `list SRC [filters]` shares the filter flags
+- [ ] Real `move` round trip with `test-repo` (blocked for Claude by the auto-mode classifier; Philip runs it)
 
 ## Blockers
 
-None.
+None. Real transfers need Philip to run them or add a permission rule.
 
 ## Context
 
 - Go is new to Philip. docs/GO-PRIMER.md maps Go concepts to Node
-- Build with `go build -o gh-repopotamus .`; gh runs the new binary right away (DEC-006)
-- Integration tests use the `integration` build tag (DEC-007): `REPOPOTAMUS_TEST_REPO=pborenstein/test-repo REPOPOTAMUS_TEST_DEST=documentation-rodeo go test -tags integration -v ./internal/github/`
-- A transfer settles asynchronously. Re-transferring the same repo within about 10s gets 422; a name collision also gets 422
+- Build with `go build -o gh-repopotamus .`; gh runs the new binary right away (DEC-006). `.go` files use tabs (gofmt)
+- Layout: `internal/selection` (pure filters), `internal/move` (plan + execute, transfer injected), `cmd/filters.go` (shared flags). Phase 2 TUI reuses the two internal packages
+- `move` needs `--all` with no names/filters (DEC-008); DST name collisions and unknown names are skipped at plan time (DEC-009)
+- A transfer settles asynchronously; re-transferring within ~10s gets 422. Integration tests use the `integration` tag (DEC-007)
+- Moved repos with Pages need a rebuild; the approach is noted as a Phase 3 task. `gh org list` already lists orgs
 - `hidden.nogit.dir/` and `xfer`/`xfer.sh` are prior art. Leave them alone
-- `.go` files use tabs (gofmt), not the global 2-space rule
 
 ## Next Session
 
-Create `docs/chronicles/phase-1-cli-move.md`, then start `cmd/move.go` with the selection logic. Pure filtering over `[]Repo` is easy to unit test without hitting GitHub.
+Run the round trip: `gh repopotamus move pborenstein documentation-rodeo test-repo --yes`, then move it back (once immediately to see the 422 failure path, then again after a minute). If it passes, close Phase 1 and start the Phase 2 TUI with Bubble Tea.

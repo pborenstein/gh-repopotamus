@@ -67,12 +67,13 @@ Selection. These combine: explicit names are unioned with stdin/file, and the re
 
 Execution:
 
-- [ ] Resolve the selection into a plan: a table of repos that shows source and destination
-- [ ] Confirm with y/N. `--yes` skips the prompt. `--dry-run` prints the plan and exits
-- [ ] Transfer sequentially and keep going on failure
-- [ ] Print a summary at the end: moved, failed (with the API error message), skipped
-- [ ] Exit non-zero if anything failed
-- [ ] `gh repopotamus list SRC [filters]` prints the names the selection matched (useful for piping)
+- [x] Resolve the selection into a plan: a table of repos that shows source and destination
+- [x] Confirm with y/N. `--yes` skips the prompt. `--dry-run` prints the plan and exits
+- [x] Transfer sequentially and keep going on failure
+- [x] Print a summary at the end: moved, failed (with the API error message), skipped
+- [x] Exit non-zero if anything failed
+- [x] `gh repopotamus list SRC [filters]` prints the names the selection matched (useful for piping)
+- [ ] Real `move` round trip with `test-repo`, including a 422 failure from moving back inside the settle window
 
 ## Phase 2: TUI
 
@@ -86,7 +87,8 @@ Execution:
 ## Phase 3: Polish and release
 
 - [ ] `new_name` support on collisions (maybe)
-- [ ] Owner completion from `gh api user/orgs`
+- [ ] Owner completion from `gh api user/orgs` (same data as `gh org list`)
+- [ ] Post-move Pages rebuild: pick by `build_type` (`workflow` -> `gh workflow run` or rerun the last run; `legacy` -> POST `pages/builds`). Warn that baseurl/pathPrefix may need changing
 - [ ] README, usage examples
 - [ ] goreleaser / `gh extension` precompiled release workflow
 - [ ] Retire `xfer` and `xfer.sh`
