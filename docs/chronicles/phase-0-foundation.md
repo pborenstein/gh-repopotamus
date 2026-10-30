@@ -42,3 +42,22 @@
 - DEC-006: Everything named gh-repopotamus
 
 **Files**: main.go, cmd/root.go, cmd/list.go, internal/github/github.go, docs/GO-PRIMER.md
+
+## Entry 3: Transfer verified (2026-10-29)
+
+**What**: Ran a real round-trip transfer of `pborenstein/test-repo` to documentation-rodeo and back. It passes.
+
+**Why**: `Transfer` was the last part of Phase 0 that hadn't been run against GitHub.
+
+**How**:
+
+- Added `internal/github/transfer_integration_test.go` behind the `integration` build tag, configured with env vars, so a plain `go test` never calls GitHub
+- The move out was accepted immediately and showed up within seconds
+- The move back got 422 "Repository.data is invalid": the repo resolves at its new owner before GitHub finishes the transfer. A manual retry a minute later worked
+- The test retries the move back on 422 for up to 60s. `Transfer` itself doesn't retry, because a name collision also returns 422
+
+**Decisions**:
+
+- DEC-007: Integration tests behind a build tag
+
+**Files**: internal/github/transfer_integration_test.go

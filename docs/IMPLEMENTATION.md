@@ -6,8 +6,8 @@ repopotamus is a `gh` extension (`gh repopotamus`) that transfers one or more re
 
 | Phase | Name | Status | Chronicle |
 |-------|------|--------|-----------|
-| 0 | Foundation | In progress | [phase-0-foundation.md](chronicles/phase-0-foundation.md) |
-| 1 | CLI move | Planned | - |
+| 0 | Foundation | Complete | [phase-0-foundation.md](chronicles/phase-0-foundation.md) |
+| 1 | CLI move | Next | - |
 | 2 | TUI | Planned | - |
 | 3 | Polish and release | Planned | - |
 
@@ -22,7 +22,7 @@ Bash scripts in the repo root. They stay until repopotamus replaces them.
 
 Pain point: you have to build the list file by hand before a batch move.
 
-## Phase 0: Foundation (current)
+## Phase 0: Foundation (complete)
 
 Goal: a gh extension scaffold that authenticates through gh and can list a source owner's repos with their metadata.
 
@@ -34,20 +34,21 @@ Goal: a gh extension scaffold that authenticates through gh and can list a sourc
 - [x] `internal/github`: `ListRepos(owner)` returns name, visibility, archived, fork, topics, language and pushedAt
   - GraphQL `repositoryOwner(login:)` works for orgs and users alike
   - Paginated (100 per page). Tested against tepiton, mimeo-sites and pborenstein (70 repos)
-- [x] `internal/github`: `Transfer(owner, repo, newOwner)` sends `POST /repos/{owner}/{repo}/transfer`. **Not yet exercised against a real repo**
+- [x] `internal/github`: `Transfer(owner, repo, newOwner)` sends `POST /repos/{owner}/{repo}/transfer`
 - [x] CLI framework: cobra (DEC-005)
 - [x] `gh repopotamus` works locally (`gh extension install .`, DEC-006)
 - [x] `gh repopotamus list OWNER [-l]`
-- [ ] Test `Transfer` against a throwaway repo
+- [x] Test `Transfer` against a throwaway repo: round trip pborenstein (user) to documentation-rodeo (org) and back passes (`transfer_integration_test.go`, `-tags integration`)
 - [x] First commit (baseline)
 
 ### Notes
 
 - The transfer endpoint returns 202 and finishes asynchronously. The repo can still answer at the old path for a moment afterwards
 - Transferring into an org requires the caller to have permission to create repos there
+- The repo resolves at its new owner before GitHub finishes the transfer. Transferring the *same* repo again within about 5-10 seconds gets 422 "Repository.data is invalid". Batches move each repo once, so they aren't affected
 - Transfer fails if the target already has a repo with the same name. `new_name` is an optional field and could be offered later
 
-## Phase 1: CLI move
+## Phase 1: CLI move (current)
 
 Command shape (draft):
 

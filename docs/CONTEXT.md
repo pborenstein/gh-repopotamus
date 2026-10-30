@@ -1,19 +1,21 @@
 ---
-phase: 0
-phase_name: Foundation
+phase: 1
+phase_name: CLI move
 updated: 2026-10-29
-last_commit: a3d0767
-last_entry: 2
+last_commit: pending
+last_entry: 3
 ---
 
 ## Current Focus
 
-The Phase 0 scaffold is done and `gh repopotamus list OWNER [-l]` works. Baseline committed. What's left is testing `Transfer` for real.
+Phase 0 is complete: `gh repopotamus list OWNER [-l]` works, and `Transfer` passed a real round trip. Phase 1 is next: the `move` command.
 
 ## Active Tasks
 
-- [ ] Test `Transfer` with a throwaway repo (create it in one org, move it, verify, delete)
-- [ ] Then Phase 1: the `move` command with selection, plan, confirm, execute and summary
+- [ ] `cmd/move.go`: `gh repopotamus move SRC DST [REPO...]`
+- [ ] Selection: names, stdin/`--from-file`, `--match`/`--regex`, metadata filters
+- [ ] Plan table, y/N confirm, `--yes`, `--dry-run`
+- [ ] Execute sequentially, continue on failure, summary, non-zero exit on any failure
 
 ## Blockers
 
@@ -22,11 +24,12 @@ None.
 ## Context
 
 - Go is new to Philip. docs/GO-PRIMER.md maps Go concepts to Node
-- Build with `go build -o gh-repopotamus .`. and gh runs the new binary right away (DEC-006)
-- The transfer API returns 202 and finishes asynchronously. It fails on a name collision in the target
+- Build with `go build -o gh-repopotamus .`; gh runs the new binary right away (DEC-006)
+- Integration tests use the `integration` build tag (DEC-007): `REPOPOTAMUS_TEST_REPO=pborenstein/test-repo REPOPOTAMUS_TEST_DEST=documentation-rodeo go test -tags integration -v ./internal/github/`
+- A transfer settles asynchronously. Re-transferring the same repo within about 10s gets 422; a name collision also gets 422
 - `hidden.nogit.dir/` and `xfer`/`xfer.sh` are prior art. Leave them alone
 - `.go` files use tabs (gofmt), not the global 2-space rule
 
 ## Next Session
 
-Test `Transfer` on a throwaway repo, then start the Phase 1 `move` command in `cmd/move.go`.
+Create `docs/chronicles/phase-1-cli-move.md`, then start `cmd/move.go` with the selection logic. Pure filtering over `[]Repo` is easy to unit test without hitting GitHub.

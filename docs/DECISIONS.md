@@ -85,3 +85,17 @@ Architectural decisions for this project. Search with `grep -i "keyword" docs/DE
 **Alternatives considered**: Keep `repopotamus/` and hand-symlink it into `~/.local/share/gh/extensions/` (tried briefly, dropped as an extra indirection).
 
 **Consequences**: Directory, module, binary and repo use one name. The binary still has to be rebuilt after changes.
+
+---
+
+### DEC-007: Integration tests behind a build tag (2026-10-29)
+
+**Status**: Active
+
+**Context**: Testing `Transfer` means really moving a repo on GitHub, which is outward-facing and slow.
+
+**Decision**: Tests that call GitHub carry `//go:build integration` and take their targets from env vars (`REPOPOTAMUS_TEST_REPO`, `REPOPOTAMUS_TEST_DEST`). They skip if the env vars are unset. Plain `go test ./...` runs only offline tests.
+
+**Alternatives considered**: A throwaway script in scratch space (not repeatable); mocking the API with go-gh's gock support (doesn't catch real API behavior such as the 422 settle window).
+
+**Consequences**: Real-API checks have to be run on purpose with `-tags integration`. Selection and plan logic in Phase 1 should be written as pure functions so they can be unit tested offline.
