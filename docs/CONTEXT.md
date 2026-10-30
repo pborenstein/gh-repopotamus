@@ -2,7 +2,7 @@
 phase: 1
 phase_name: CLI move
 updated: 2026-10-29
-last_commit: PENDING
+last_commit: ff32bc1
 last_entry: 4
 ---
 
