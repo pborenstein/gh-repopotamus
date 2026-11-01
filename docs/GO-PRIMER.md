@@ -48,7 +48,12 @@ There's no registry like npmjs.com. A module's name *is* its source location (`g
 main.go                 entry point: calls cmd.Execute()
 cmd/root.go             cobra root command (gh repopotamus)
 cmd/list.go             gh repopotamus list OWNER [-l]
-internal/github/        API layer: ListRepos (GraphQL), Transfer (REST)
+cmd/move.go             gh repopotamus move SRC DST [REPO...]
+cmd/tui.go              gh repopotamus (no args) / tui
+internal/github/        API layer: ListRepos (GraphQL), ListOwners and Transfer (REST)
+internal/selection/     pure filter logic
+internal/move/          plan + Execute, shared by CLI and TUI
+internal/tui/           Bubble Tea models
 go.mod / go.sum         dependencies and their checksums
 gh-repopotamus          built binary (gitignored)
 ```
@@ -59,7 +64,9 @@ gh-repopotamus          built binary (gitignored)
 |---------|------|---------------|
 | `github.com/cli/go-gh/v2` | API clients that reuse `gh auth` credentials | `@octokit/*` with token from gh |
 | `github.com/spf13/cobra` | Subcommands, flags, help text, shell completion | commander / yargs |
-| `charmbracelet/bubbletea` (Phase 2) | TUI framework | ink |
+| `charm.land/bubbletea/v2` | TUI framework (Elm architecture) | ink, or a Redux loop |
+| `charm.land/bubbles/v2` | Ready-made widgets: list, text input, spinner | ink-select-input etc. |
+| `charm.land/lipgloss/v2` | Terminal styling and layout | chalk + a bit of CSS |
 
 ## Daily commands
 
@@ -81,6 +88,26 @@ gh-repopotamus          built binary (gitignored)
 - **Pointers** (`*struct{...}`) are used where a value may be absent (`nil`). For example, `RepositoryOwner` is nil when the owner doesn't exist
 - **JSON mapping** is by field name, case-insensitive: the `IsArchived` field receives `"isArchived"`
 - **Tabs for indentation.** `gofmt` enforces it. That's the Go convention, so the 2-space rule doesn't apply to `.go` files
+
+## Bubble Tea in Node terms
+
+Bubble Tea is the Elm architecture, which is close to a Redux store driving a render function.
+
+| Bubble Tea | Node / Redux analogue | In this repo |
+|------------|-----------------------|--------------|
+| Model (a struct) | Store state | `ownerPicker` in `internal/tui/owners.go` |
+| `Update(msg) (Model, Cmd)` | Reducer: returns the *new* state | Handles key presses, window size, loaded data |
+| `View() tea.View` | `render()` | Called after every Update |
+| `tea.Msg` | An action | `tea.KeyPressMsg`, `ownersLoadedMsg` |
+| `tea.Cmd` (`func() tea.Msg`) | A thunk / side effect | `loadOwners` calls the API; its return value comes back as a Msg |
+| `tea.Quit` | `process.exit` after cleanup | Returned when both owners are picked |
+
+Two Go details that show up here:
+
+- **Value receivers.** `func (m ownerPicker) Update(...)` gets a *copy* of the model, changes the copy, and returns it. That's why Update returns `m`: like a reducer, nothing is mutated in place. A helper that should modify the model in place takes a pointer instead (`func (m *ownerPicker) showOwners(...)`)
+- **Type switches.** `switch msg := msg.(type) { case tea.KeyPressMsg: ... }` branches on the concrete type behind an interface, like `if (action instanceof X)` but checked by the compiler. `x.(ownerItem)` with `, ok` is a safe cast
+
+Side effects never run inside Update. Update returns a Cmd, Bubble Tea runs it on another goroutine (a lightweight thread), and the result arrives as the next Msg. That's how slow API calls stay off the UI loop.
 
 ## How the gh extension is installed
 

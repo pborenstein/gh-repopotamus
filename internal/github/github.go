@@ -133,3 +133,38 @@ func Transfer(owner, repo, newOwner string) error {
 	path := fmt.Sprintf("repos/%s/%s/transfer", owner, repo)
 	return client.Post(path, bytes.NewReader(body), nil)
 }
+
+// Owner is an account repos can be moved from or to: the signed-in user or
+// one of their orgs.
+type Owner struct {
+	Login string
+	IsOrg bool
+}
+
+// ListOwners returns the signed-in user followed by their orgs (the same orgs
+// `gh org list` shows).
+func ListOwners() ([]Owner, error) {
+	client, err := api.DefaultRESTClient()
+	if err != nil {
+		return nil, err
+	}
+
+	var user struct{ Login string }
+	if err := client.Get("user", &user); err != nil {
+		return nil, err
+	}
+	owners := []Owner{{Login: user.Login}}
+
+	for page := 1; ; page++ {
+		var orgs []struct{ Login string }
+		if err := client.Get(fmt.Sprintf("user/orgs?per_page=100&page=%d", page), &orgs); err != nil {
+			return nil, err
+		}
+		for _, o := range orgs {
+			owners = append(owners, Owner{Login: o.Login, IsOrg: true})
+		}
+		if len(orgs) < 100 {
+			return owners, nil
+		}
+	}
+}

@@ -77,7 +77,7 @@ Execution:
 
 ## Phase 2: TUI (current)
 
-- [ ] `gh repopotamus` with no args (or `tui`) asks for the source and destination owners
+- [x] `gh repopotamus` with no args (or `tui`) asks for the source and destination owners
 - [ ] Multi-select list of source repos showing name, visibility, archived, language and last push
 - [ ] Type-to-filter, plus toggles for archived/forks, select all visible, and invert
 - [ ] Confirm screen that shows the plan

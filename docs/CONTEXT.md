@@ -12,7 +12,7 @@ Phase 1 is complete: `gh repopotamus move` passed a real round trip. Phase 2 is 
 
 ## Active Tasks
 
-- [ ] `gh repopotamus` with no args (or `tui`) asks for source and destination owners
+- [x] `gh repopotamus` with no args (or `tui`) asks for source and destination owners
 - [ ] Multi-select repo list (name, visibility, archived, language, last push)
 - [ ] Type-to-filter, archived/forks toggles, select all visible, invert
 - [ ] Confirm screen showing the plan; progress view ending in a summary
