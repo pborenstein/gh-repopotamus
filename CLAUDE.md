@@ -35,6 +35,7 @@ Run `gofmt`, `go vet` and `go test ./...` before you commit.
 | `internal/github` | go-gh API calls: a paginated GraphQL repo listing and the transfer |
 | `internal/selection` | Pure filter logic over repo metadata. No I/O |
 | `internal/move` | Builds the plan (with skips for collisions and unknown names, DEC-009) and runs `Execute` with an injected transfer func and a per-item progress callback |
+| `internal/tui` | Two-pane browser (DEC-010). `queue.go` is the pure staging logic; `run.go` runs `move.Execute` in a goroutine. Tests drive the app with fakes |
 
 Keep logic in `internal/` so the CLI and the TUI share it. `cmd/` and the TUI should only parse input and render output.
 

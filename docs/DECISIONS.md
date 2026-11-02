@@ -127,3 +127,17 @@ Architectural decisions for this project. Search with `grep -i "keyword" docs/DE
 **Alternatives considered**: Let the transfer fail and report the 422 (vaguer message, and it counts as a failure).
 
 **Consequences**: One more GraphQL listing per run. A 422 during execution now usually means the settle window or a race.
+
+---
+
+### DEC-010: TUI is a two-pane browser with a queue (2026-10-31)
+
+**Status**: Active
+
+**Context**: A pick-owners-then-pick-repos flow means you have to know what's in each org before you start. Philip wanted to look through orgs first, like the classic Mac Font/DA Mover.
+
+**Decision**: Two panes, each showing one owner's repos. `o` opens any owner in the active pane. `>` queues the selection (or the row under the cursor) to move to the other pane, in either direction. Panes show the projected state: a queued repo leaves its source pane and appears, marked `+`, in the destination. Moving a queued repo back to its origin cancels it; moving it to a third owner re-routes it, so transfers never chain. Collisions are refused at queue time against the projected state. Nothing transfers until `q` shows a review grouped by from→to and the user presses `y`.
+
+**Alternatives considered**: A linear owners→repos→confirm flow (the first build). Confirm-and-transfer on each `>` (immediate, but no chance to look over a whole session's moves first).
+
+**Consequences**: The confirm and progress screens become one review/run screen. `move.NewPlan` still builds the plans, against the destinations' real repos, so its collision skips remain as a backstop. Repo lists are cached per owner for the session.

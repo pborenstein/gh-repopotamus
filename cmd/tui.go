@@ -5,12 +5,13 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/pborenstein/gh-repopotamus/internal/move"
 	"github.com/pborenstein/gh-repopotamus/internal/tui"
 )
 
 var tuiCmd = &cobra.Command{
 	Use:   "tui",
-	Short: "Pick owners and repos interactively",
+	Short: "Browse two owners side by side and move repos between them",
 	Args:  cobra.NoArgs,
 	RunE:  runTUI,
 }
@@ -23,14 +24,36 @@ func init() {
 }
 
 func runTUI(cmd *cobra.Command, args []string) error {
-	src, dst, ok, err := tui.PickOwners()
+	res, err := tui.Run()
 	if err != nil {
 		return err
 	}
-	if !ok {
+	if !res.Ran {
 		return nil
 	}
-	// The repo list comes next; for now, report the choice.
-	fmt.Fprintf(cmd.OutOrStdout(), "%s -> %s\n", src, dst)
+
+	// The TUI ran in the alternate screen, which is gone now. Leave a record
+	// in the scrollback.
+	var moved, failed, skipped int
+	for _, p := range res.Plans {
+		fmt.Printf("%s -> %s\n", p.Src, p.Dst)
+		for _, it := range p.Items {
+			line := fmt.Sprintf("  %-8s %s", it.Status, it.Name)
+			if it.Reason != "" {
+				line += "  (" + it.Reason + ")"
+			}
+			if it.Err != nil {
+				line += "  " + it.Err.Error()
+			}
+			fmt.Println(line)
+		}
+		moved += p.Count(move.Moved)
+		failed += p.Count(move.Failed)
+		skipped += p.Count(move.Skipped)
+	}
+	fmt.Printf("\n%d moved, %d failed, %d skipped.\n", moved, failed, skipped)
+	if failed > 0 {
+		return fmt.Errorf("%d transfer(s) failed", failed)
+	}
 	return nil
 }

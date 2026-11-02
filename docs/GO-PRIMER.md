@@ -53,7 +53,7 @@ cmd/tui.go              gh repopotamus (no args) / tui
 internal/github/        API layer: ListRepos (GraphQL), ListOwners and Transfer (REST)
 internal/selection/     pure filter logic
 internal/move/          plan + Execute, shared by CLI and TUI
-internal/tui/           Bubble Tea models
+internal/tui/           Bubble Tea models: app, pane, owner picker, queue, transfer runner
 go.mod / go.sum         dependencies and their checksums
 gh-repopotamus          built binary (gitignored)
 ```
@@ -95,19 +95,30 @@ Bubble Tea is the Elm architecture, which is close to a Redux store driving a re
 
 | Bubble Tea | Node / Redux analogue | In this repo |
 |------------|-----------------------|--------------|
-| Model (a struct) | Store state | `ownerPicker` in `internal/tui/owners.go` |
+| Model (a struct) | Store state | `app` in `internal/tui/app.go`, which holds two `pane`s |
 | `Update(msg) (Model, Cmd)` | Reducer: returns the *new* state | Handles key presses, window size, loaded data |
 | `View() tea.View` | `render()` | Called after every Update |
 | `tea.Msg` | An action | `tea.KeyPressMsg`, `ownersLoadedMsg` |
 | `tea.Cmd` (`func() tea.Msg`) | A thunk / side effect | `loadOwners` calls the API; its return value comes back as a Msg |
-| `tea.Quit` | `process.exit` after cleanup | Returned when both owners are picked |
+| `tea.Quit` | `process.exit` after cleanup | Returned on `q` with nothing queued, or after the run |
 
 Two Go details that show up here:
 
-- **Value receivers.** `func (m ownerPicker) Update(...)` gets a *copy* of the model, changes the copy, and returns it. That's why Update returns `m`: like a reducer, nothing is mutated in place. A helper that should modify the model in place takes a pointer instead (`func (m *ownerPicker) showOwners(...)`)
+- **Value receivers.** `func (m ownerPicker) Update(...)` gets a *copy* of the model, changes the copy, and returns it. That's why Update returns `m`: like a reducer, nothing is mutated in place. A helper that should modify the model in place takes a pointer instead (`func (p *pane) setRows(...)`)
 - **Type switches.** `switch msg := msg.(type) { case tea.KeyPressMsg: ... }` branches on the concrete type behind an interface, like `if (action instanceof X)` but checked by the compiler. `x.(ownerItem)` with `, ok` is a safe cast
 
 Side effects never run inside Update. Update returns a Cmd, Bubble Tea runs it on another goroutine (a lightweight thread), and the result arrives as the next Msg. That's how slow API calls stay off the UI loop.
+
+### Goroutines and channels (`internal/tui/run.go`)
+
+| Go | Node analogue |
+|----|---------------|
+| `go func() { ... }()` | Starting work without awaiting it, but on a real thread pool, so blocking calls don't freeze anything |
+| `ch := make(chan T)` | An async queue one side pushes to and the other awaits; with no buffer, a send waits until someone receives |
+| `ch <- v` / `v, ok := <-ch` | `push` / `await next()`. `ok` is false once the channel is closed, like an async iterator finishing |
+| `defer close(ch)` | Signals "no more values" when the function returns, however it returns |
+
+The transfers run in one goroutine and send a `progressMsg` per repo. `waitProgress` is a `tea.Cmd` that blocks on the channel; each time a message arrives, Update handles it and returns `waitProgress` again to wait for the next. The goroutine gets its own copy of the plans, so the UI's copy only ever changes inside Update. `go test -race` checks that no two goroutines touch the same memory unsafely.
 
 ## How the gh extension is installed
 

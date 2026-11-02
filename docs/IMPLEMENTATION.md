@@ -77,12 +77,16 @@ Execution:
 
 ## Phase 2: TUI (current)
 
-- [x] `gh repopotamus` with no args (or `tui`) asks for the source and destination owners
-- [ ] Multi-select list of source repos showing name, visibility, archived, language and last push
-- [ ] Type-to-filter, plus toggles for archived/forks, select all visible, and invert
-- [ ] Confirm screen that shows the plan
-- [ ] Progress view with per-repo status, ending in a summary
-- [ ] Reuse the same `plan` and `execute` code as the CLI
+Two-pane browser in the style of Font/DA Mover (DEC-010).
+
+- [x] `gh repopotamus` with no args (or `tui`) opens the browser; `o` opens any owner in the active pane
+- [x] Multi-select repo list per pane: name, visibility, archived/fork, last push, language (columns drop when narrow)
+- [x] Type-to-filter, plus toggles for archived/forks, select all visible, and invert
+- [x] `>` queues moves in either direction; panes show the projected state; moving back cancels
+- [x] Review screen grouped by from→to; `y` runs it with per-repo status and a summary
+- [x] Reuse the same `plan` and `execute` code as the CLI
+- [ ] Philip runs a real move from the TUI
+- [ ] Scrolling for a review longer than the screen (it truncates now)
 
 ## Phase 3: Polish and release
 
