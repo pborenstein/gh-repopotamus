@@ -1,20 +1,19 @@
 ---
 phase: 2
 phase_name: TUI
-updated: 2026-11-02
-last_commit: da14785
-last_entry: 7
+updated: 2026-11-10
+last_commit: 3406f34
+last_entry: 8
 ---
 
 ## Current Focus
 
-Phase 2 TUI is a two-pane browser modeled on Font/DA Mover (DEC-010). Built and tested with fakes. Philip has browsed it live; a pagination overflow (stale lines) was fixed. It still needs a real move.
+Cloning works from the CLI (`clone OWNER … --dir`) and the TUI (`c`, `d` for the directory, `--clone-dir`) per DEC-011. Every feature now ships on both surfaces (DEC-012). Real TUI moves and a real clone are confirmed working.
 
 ## Active Tasks
 
-- [ ] Philip confirms the stale-lines fix (help line visible under the status line)
-- [ ] Philip runs a real move from the TUI (queue, review, `y`)
-- [ ] Scrolling for a review longer than the screen (it truncates now)
+- [ ] Scrolling for review screens longer than the terminal (move and clone both truncate; whole-org clones make this likely)
+- [ ] Decide whether Phase 2 is done (candidates: `r` to refresh a pane, parallel clones)
 
 ## Blockers
 
@@ -22,15 +21,16 @@ None. Real transfers need Philip to run them (the auto-mode classifier blocks Cl
 
 ## Context
 
+- Philip is mainly a CLI user. Build every feature for both CLI and TUI (DEC-012)
 - Go is new to Philip. docs/GO-PRIMER.md maps Go concepts to Node
 - Build with `go build -o gh-repopotamus .`; gh runs the new binary right away (DEC-006). `.go` files use tabs (gofmt)
-- Layout: `internal/selection` (pure filters), `internal/move` (plan + `Execute` with an injected transfer func and a per-item progress callback), `cmd/filters.go` (shared flags), `internal/tui` (app, pane, queue, owner picker, transfer runner)
-- `move` needs `--all` with no names/filters (DEC-008); DST collisions and unknown names are skipped at plan time (DEC-009)
-- `github.ListOwners` = the user's login plus `user/orgs` (same data as `gh org list`)
-- bubbles' list overruns its height by 1 when paginated, and binds quit to `v`. Both are worked around in `internal/tui`
-- TUI tests use a harness that runs each `tea.Cmd` and feeds the message back, with fake `listRepos`/`transfer`
+- Layout: `internal/selection` (filters), `internal/move` and `internal/clone` (plan + `Execute` with injected func and progress callback), `cmd/filters.go` (shared by list/move/clone), `internal/tui`
+- Clone: flat `DIR/REPO` via `gh repo clone`; skips existing folders and unknown names; no `--all` guard. The TUI's `c` with nothing selected = all shown repos (no cursor-row fallback)
+- `move` needs `--all` with no names/filters (DEC-008); collisions and unknown names are skipped at plan time (DEC-009)
+- bubbles' list overruns its height by 1 when paginated, and binds quit to `v`. Both worked around in `internal/tui`
+- TUI tests use a harness running each `tea.Cmd`, with fake `listRepos`/`transfer`/`cloneRepo`/`exists`
 - `hidden.nogit.dir/` and `xfer`/`xfer.sh` are prior art. Leave them alone
 
 ## Next Session
 
-Hear back from Philip's real TUI run and fix what turns up. Then review scrolling, and decide whether Phase 2 is done or needs more (e.g. refreshing a pane from the API with `r`).
+Add scrolling to the review screens, then decide whether Phase 2 is done.
