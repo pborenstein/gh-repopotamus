@@ -41,5 +41,4 @@ Keep logic in `internal/` so the CLI and the TUI share it. `cmd/` and the TUI sh
 
 ## Working with Philip
 
-- Go is new to Philip. When you introduce an idiom they haven't seen yet (channels, goroutines, `tea.Cmd`, interfaces), explain it in Node terms and add it to `docs/GO-PRIMER.md`.
 - Update tracking with the `handoff:session-wrapup` skill: CONTEXT.md, the phase chronicle, and DECISIONS.md for new decisions.

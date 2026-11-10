@@ -5,10 +5,10 @@ repopotamus is a `gh` extension (`gh repopotamus`) that transfers one or more re
 ## Phase Overview
 
 | Phase | Name | Status | Chronicle |
-|-------|------|--------|-----------|
+|:------|:-----|:-------|:----------|
 | 0 | Foundation | Complete | [phase-0-foundation.md](chronicles/phase-0-foundation.md) |
 | 1 | CLI move | Complete | [phase-1-cli-move.md](chronicles/phase-1-cli-move.md) |
-| 2 | TUI | Next | - |
+| 2 | TUI | Current | [phase-2-tui.md](chronicles/phase-2-tui.md) |
 | 3 | Polish and release | Planned | - |
 
 ## Prior Art
@@ -16,7 +16,7 @@ repopotamus is a `gh` extension (`gh repopotamus`) that transfers one or more re
 Bash scripts in the repo root. They stay until repopotamus replaces them.
 
 | File | Does |
-|------|------|
+|:-----|:-----|
 | `xfer` | `xfer owner/repo newowner`. Transfers one repo with `gh api POST repos/{repo}/transfer` |
 | `xfer.sh` | Reads repo names from a `sites` file. The source and destination owners are hardcoded. Stops at the first failure |
 
@@ -59,7 +59,7 @@ gh repopotamus move SRC DST [REPO...] [flags]
 Selection. These combine: explicit names are unioned with stdin/file, and the result is then narrowed by `--match` and the filters.
 
 | Input | Flag |
-|-------|------|
+|:------|:-----|
 | Explicit names | positional `REPO...` |
 | stdin / file | `-` as positional, or `--from-file PATH` |
 | Glob / regex | `--match 'site-*'`, `--regex '^site-'` |

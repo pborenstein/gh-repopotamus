@@ -22,7 +22,6 @@ None. Real transfers need Philip to run them (the auto-mode classifier blocks Cl
 ## Context
 
 - Philip is mainly a CLI user. Build every feature for both CLI and TUI (DEC-012)
-- Go is new to Philip. docs/GO-PRIMER.md maps Go concepts to Node
 - Build with `go build -o gh-repopotamus .`; gh runs the new binary right away (DEC-006). `.go` files use tabs (gofmt)
 - Layout: `internal/selection` (filters), `internal/move` and `internal/clone` (plan + `Execute` with injected func and progress callback), `cmd/filters.go` (shared by list/move/clone), `internal/tui`
 - Clone: flat `DIR/REPO` via `gh repo clone`; skips existing folders and unknown names; no `--all` guard. The TUI's `c` with nothing selected = all shown repos (no cursor-row fallback)
