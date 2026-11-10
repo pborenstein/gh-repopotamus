@@ -16,15 +16,21 @@ var tuiCmd = &cobra.Command{
 	RunE:  runTUI,
 }
 
+var tuiCloneDir string
+
 func init() {
 	rootCmd.AddCommand(tuiCmd)
-	// With no subcommand, gh repopotamus starts the TUI.
+	// With no subcommand, gh repopotamus starts the TUI, so the root takes
+	// the TUI's flags too.
 	rootCmd.Args = cobra.NoArgs
 	rootCmd.RunE = runTUI
+	for _, c := range []*cobra.Command{rootCmd, tuiCmd} {
+		c.Flags().StringVar(&tuiCloneDir, "clone-dir", "", "clone into DIR (default: the current directory; d changes it in the TUI)")
+	}
 }
 
 func runTUI(cmd *cobra.Command, args []string) error {
-	res, err := tui.Run()
+	res, err := tui.Run(tui.Options{CloneDir: tuiCloneDir})
 	if err != nil {
 		return err
 	}

@@ -5,13 +5,16 @@ package tui
 
 import (
 	"fmt"
+	"os"
 	"strings"
 
 	"charm.land/bubbles/v2/key"
 	"charm.land/bubbles/v2/list"
+	"charm.land/bubbles/v2/textinput"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 
+	"github.com/pborenstein/gh-repopotamus/internal/clone"
 	"github.com/pborenstein/gh-repopotamus/internal/github"
 	"github.com/pborenstein/gh-repopotamus/internal/move"
 )
@@ -27,12 +30,15 @@ func newList(d list.ItemDelegate) list.Model {
 type mode int
 
 const (
-	modeLoading   mode = iota // waiting for the owner list
-	modeBrowse                // two panes
-	modePickOwner             // owner list open in the active pane
-	modeReview                // queued moves shown as plans, waiting for y
-	modeRunning               // transfers in progress
-	modeDone                  // transfers finished
+	modeLoading     mode = iota // waiting for the owner list
+	modeBrowse                  // two panes
+	modePickOwner               // owner list open in the active pane
+	modeReview                  // queued moves shown as plans, waiting for y
+	modeRunning                 // transfers in progress
+	modeDone                    // transfers finished
+	modeCloneReview             // clone plan shown, waiting for y
+	modeCloning                 // clones in progress
+	modeCloneDone               // clones finished; any key returns to browse
 )
 
 // Result is what happened. Ran is false if the user quit without confirming.
@@ -57,18 +63,40 @@ type app struct {
 	progress chan progressMsg
 	aborting bool
 
+	clonePlan     clone.Plan
+	cloneRepos    []github.Repo // what clonePlan was built from
+	cloneProgress chan cloneProgressMsg
+	dirInput      textinput.Model
+	editingDir    bool
+
 	listRepos func(string) ([]github.Repo, error)
 	transfer  move.TransferFunc
+	startDir  string // where gh repopotamus was started; relative paths start here
+	cloneDir  string // where clones go; starts as startDir
+	exists    func(string) bool
+	cloneRepo clone.CloneFunc
 	err       error
 }
 
 func newApp() app {
+	// Clones go into the directory gh repopotamus was started from.
+	dir, err := os.Getwd()
+	if err != nil {
+		dir = "."
+	}
+	in := textinput.New()
+	in.Prompt = ""
 	return app{
+		dirInput:  in,
+		startDir:  dir,
 		cache:     map[string][]github.Repo{},
 		panes:     [2]pane{newPane(), newPane()},
 		picker:    newOwnerPicker(),
 		listRepos: github.ListRepos,
 		transfer:  github.Transfer,
+		cloneDir:  dir,
+		exists:    clone.Exists,
+		cloneRepo: github.Clone,
 	}
 }
 
@@ -148,6 +176,16 @@ func (a app) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		a.mode = modeDone
 		return a, nil
 
+	case cloneProgressMsg:
+		applyClone(&a.clonePlan, msg)
+		return a, waitClone(a.cloneProgress)
+
+	case clonesDoneMsg:
+		a.mode = modeCloneDone
+		a.aborting = false
+		a.status = ""
+		return a, nil
+
 	case tea.KeyPressMsg:
 		return a.key(msg)
 	}
@@ -161,6 +199,10 @@ func (a app) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case modeBrowse:
 		p := &a.panes[a.active]
 		p.list, cmd = p.list.Update(msg)
+	case modeCloneReview:
+		if a.editingDir {
+			a.dirInput, cmd = a.dirInput.Update(msg)
+		}
 	}
 	return a, cmd
 }
@@ -168,9 +210,13 @@ func (a app) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (a app) key(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	k := msg.String()
 	if k == "ctrl+c" {
-		if a.mode == modeRunning && !a.aborting {
+		if (a.mode == modeRunning || a.mode == modeCloning) && !a.aborting {
 			a.aborting = true
-			a.status = "Transfers are running. Press ctrl+c again to abort."
+			what := "Transfers are"
+			if a.mode == modeCloning {
+				what = "Clones are"
+			}
+			a.status = what + " running. Press ctrl+c again to abort."
 			return a, nil
 		}
 		return a, tea.Quit
@@ -199,6 +245,35 @@ func (a app) key(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case modeDone:
 		return a, tea.Quit
 
+	case modeCloneReview:
+		if a.editingDir {
+			return a.dirKey(msg)
+		}
+		switch k {
+		case "d":
+			a.editingDir = true
+			a.status = ""
+			a.dirInput.SetValue(a.cloneDir)
+			a.dirInput.CursorEnd()
+			return a, a.dirInput.Focus()
+		case "y":
+			if a.clonePlan.Count(clone.Pending) == 0 {
+				return a, nil
+			}
+			a.mode = modeCloning
+			a.cloneProgress = startClones(a.clonePlan, a.cloneRepo)
+			return a, waitClone(a.cloneProgress)
+		case "esc", "n":
+			a.mode = modeBrowse
+		}
+		return a, nil
+
+	case modeCloneDone:
+		// Cloning changes nothing on GitHub, so the browser is still current.
+		a.mode = modeBrowse
+		a.status = cloneSummary(a.clonePlan)
+		return a, nil
+
 	case modeBrowse:
 		return a.browseKey(msg)
 	}
@@ -221,6 +296,8 @@ func (a app) browseKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		a.openPicker()
 	case ">", "<", "m":
 		return a, a.stage()
+	case "c":
+		a.reviewClones()
 	case "space":
 		p.toggleCurrent()
 	case "a":
@@ -333,6 +410,53 @@ func (a *app) stage() tea.Cmd {
 	return cmd
 }
 
+// dirKey handles keys while the clone directory is being edited. enter
+// re-plans against the new directory, since which folders already exist
+// depends on it.
+func (a app) dirKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "enter":
+		dir, err := clone.ResolveDir(a.dirInput.Value(), a.startDir)
+		if err != nil {
+			a.status = err.Error()
+			return a, nil
+		}
+		a.cloneDir = dir
+		a.clonePlan = clone.NewPlan(dir, a.cloneRepos, a.exists)
+	case "esc":
+	default:
+		var cmd tea.Cmd
+		a.dirInput, cmd = a.dirInput.Update(msg)
+		return a, cmd
+	}
+	a.editingDir = false
+	a.status = ""
+	a.dirInput.Blur()
+	return a, nil
+}
+
+// reviewClones plans cloning the active pane's selection, or all its shown
+// repos, and opens the clone review.
+func (a *app) reviewClones() {
+	p := &a.panes[a.active]
+	switch {
+	case p.owner == "":
+		a.status = "Open an owner first (o)."
+		return
+	case p.loading:
+		a.status = "Still loading."
+		return
+	}
+	repos := p.cloneTargets()
+	if len(repos) == 0 {
+		a.status = "Nothing to clone."
+		return
+	}
+	a.cloneRepos = repos
+	a.clonePlan = clone.NewPlan(a.cloneDir, repos, a.exists)
+	a.mode = modeCloneReview
+}
+
 // Layout: two bordered panes with a 4-column gutter, then a status line and
 // a help line.
 const gutter = 4
@@ -362,6 +486,8 @@ func (a app) View() tea.View {
 		content = "Loading owners..."
 	case modeBrowse, modePickOwner:
 		content = a.browserView()
+	case modeCloneReview, modeCloning, modeCloneDone:
+		content = a.cloneView()
 	default:
 		content = a.plansView()
 	}
@@ -406,7 +532,7 @@ func (a app) browserView() string {
 	if status == "" {
 		status = queueSummary(a.queue)
 	}
-	help := "tab pane · o owner · space select · a all · i invert · A/F hide archived/forks · / filter · > move · q review/quit"
+	help := "tab pane · o owner · space select · a all · i invert · A/F hide archived/forks · / filter · > move · c clone · q review/quit"
 	if a.mode == modePickOwner {
 		help = "enter open · / filter · esc cancel"
 	}
@@ -453,11 +579,7 @@ func (a app) plansView() string {
 		lines = append(lines, "")
 	}
 
-	// Keep the footer on screen if the list is long.
-	if room := a.height - 3; room > 0 && len(lines) > room {
-		more := len(lines) - room + 1
-		lines = append(lines[:room-1], helpStyle.Render(fmt.Sprintf("... %d more lines", more)))
-	}
+	lines = a.fit(lines)
 
 	var footer, help string
 	switch a.mode {
@@ -491,6 +613,80 @@ func (a app) plansView() string {
 	return strings.Join(lines, "\n") + "\n" + footer + "\n" + helpStyle.Render(help)
 }
 
+// fit cuts lines to leave room for a footer and help line under them.
+func (a app) fit(lines []string) []string {
+	if room := a.height - 3; room > 0 && len(lines) > room {
+		more := len(lines) - room + 1
+		lines = append(lines[:room-1], helpStyle.Render(fmt.Sprintf("... %d more lines", more)))
+	}
+	return lines
+}
+
+var cloneStatusStyles = map[clone.Status]lipgloss.Style{
+	clone.Pending: statusStyles[move.Pending],
+	clone.Cloned:  statusStyles[move.Moved],
+	clone.Failed:  statusStyles[move.Failed],
+	clone.Skipped: statusStyles[move.Skipped],
+}
+
+// cloneView is the clone review, progress and summary screen.
+func (a app) cloneView() string {
+	p := a.clonePlan
+	header := headerStyle.Render("Clone into " + p.Dir)
+	if a.editingDir {
+		header = headerStyle.Render("Clone into ") + a.dirInput.View()
+	}
+	lines := []string{header}
+	for _, it := range p.Items {
+		label := it.Status.String()
+		if a.mode == modeCloneReview && it.Status == clone.Pending {
+			label = "clone"
+		}
+		line := fmt.Sprintf("  %s %s", cloneStatusStyles[it.Status].Render(fmt.Sprintf("%-8s", label)), it.FullName())
+		if it.Reason != "" {
+			line += "  " + helpStyle.Render(it.Reason)
+		}
+		if it.Err != nil {
+			line += "  " + helpStyle.Render(it.Err.Error())
+		}
+		lines = append(lines, line)
+	}
+	lines = append(lines, "")
+	lines = a.fit(lines)
+
+	var footer, help string
+	switch a.mode {
+	case modeCloneReview:
+		pending := p.Count(clone.Pending)
+		footer = fmt.Sprintf("%d to clone, %d skipped.", pending, p.Count(clone.Skipped))
+		if a.status != "" {
+			footer = a.status
+		}
+		help = "y clone · d change directory · esc back to browser"
+		if pending == 0 {
+			help = "d change directory · esc back to browser"
+		}
+		if a.editingDir {
+			help = "enter use this directory · esc keep " + p.Dir
+		}
+	case modeCloning:
+		done := p.Count(clone.Cloned) + p.Count(clone.Failed)
+		footer = fmt.Sprintf("Cloning %d/%d...", done, done+p.Count(clone.Pending))
+		if a.status != "" {
+			footer = a.status
+		}
+		help = "ctrl+c abort"
+	case modeCloneDone:
+		footer = cloneSummary(p)
+		help = "any key to return to the browser"
+	}
+	return strings.Join(lines, "\n") + "\n" + footer + "\n" + helpStyle.Render(help)
+}
+
+func cloneSummary(p clone.Plan) string {
+	return fmt.Sprintf("%d cloned, %d failed, %d skipped.", p.Count(clone.Cloned), p.Count(clone.Failed), p.Count(clone.Skipped))
+}
+
 func summary(plans []move.Plan) string {
 	var moved, failed, skipped int
 	for _, p := range plans {
@@ -501,13 +697,26 @@ func summary(plans []move.Plan) string {
 	return fmt.Sprintf("%d moved, %d failed, %d skipped.", moved, failed, skipped)
 }
 
+// Options come from the command line.
+type Options struct {
+	CloneDir string // where clones go; empty means the current directory
+}
+
 // Run starts the TUI and returns what happened.
-func Run() (Result, error) {
-	final, err := tea.NewProgram(newApp()).Run()
+func Run(opts Options) (Result, error) {
+	a := newApp()
+	if opts.CloneDir != "" {
+		dir, err := clone.ResolveDir(opts.CloneDir, a.startDir)
+		if err != nil {
+			return Result{}, err
+		}
+		a.cloneDir = dir
+	}
+	final, err := tea.NewProgram(a).Run()
 	if err != nil {
 		return Result{}, err
 	}
-	a := final.(app)
+	a = final.(app)
 	if a.err != nil {
 		return Result{}, a.err
 	}

@@ -41,3 +41,24 @@
 - DEC-010: TUI is a two-pane browser with a queue
 
 **Files**: internal/tui/, cmd/tui.go, docs/DECISIONS.md, docs/IMPLEMENTATION.md, docs/GO-PRIMER.md
+
+## Entry 8: Cloning, from the CLI and the TUI (2026-11-10)
+
+**What**: Clone an owner's repos locally. In the TUI, `c` clones the selection or every shown repo, and `d` changes the destination. On the CLI, `gh repopotamus clone OWNER [REPO...] [filters] --dir DIR`. The TUI also takes `--clone-dir`.
+
+**Why**: Philip wanted local copies: a chosen few from mixed owners, everything from cohesive ones. They also confirmed the real TUI move works, and that the stale-lines fix holds.
+
+**How**:
+
+- `internal/clone`: `NewPlan` (skips existing folders), `AddMissing`, `ResolveDir` (`~`, relative to the start directory, refuses files), and `Execute` with an injected clone func
+- `github.Clone` runs `gh repo clone` through `gh.Exec` and reports gh's stderr on failure
+- TUI: modes for clone review, cloning and done; a `textinput` for the directory; `startClones` mirrors `startTransfers`. A finished clone returns to the browser
+- First built TUI-only. Philip asked for CLI parity, so `cmd/clone.go` reuses `gatherNames`, the shared filters and `confirm`. Dry runs against the real account checked the skips and path resolution
+- Tests: clone plan and execute, ResolveDir table, and TUI harness tests for clone-all, selected, esc, and changing the directory
+
+**Decisions**:
+
+- DEC-011: Cloning repos locally
+- DEC-012: Everything works from the CLI and the TUI
+
+**Files**: internal/clone/, cmd/clone.go, cmd/tui.go, internal/github/github.go, internal/tui/, README.md

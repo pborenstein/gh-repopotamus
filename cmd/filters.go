@@ -10,7 +10,7 @@ import (
 	"github.com/spf13/pflag"
 )
 
-// filterFlags are the selection filters shared by list and move.
+// filterFlags are the selection filters shared by list, move and clone.
 type filterFlags struct {
 	match        string
 	regex        string

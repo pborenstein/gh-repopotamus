@@ -85,8 +85,11 @@ Two-pane browser in the style of Font/DA Mover (DEC-010).
 - [x] `>` queues moves in either direction; panes show the projected state; moving back cancels
 - [x] Review screen grouped by from→to; `y` runs it with per-repo status and a summary
 - [x] Reuse the same `plan` and `execute` code as the CLI
-- [ ] Philip runs a real move from the TUI
-- [ ] Scrolling for a review longer than the screen (it truncates now)
+- [x] Philip runs a real move from the TUI
+- [x] Clone repos locally (DEC-011): `c` in the TUI, `gh repopotamus clone` on the CLI, destination via `d` / `--clone-dir` / `--dir`
+- [x] CLI and TUI parity (DEC-012)
+- [ ] Philip runs a real clone (CLI and TUI)
+- [ ] Scrolling for a review longer than the screen (it truncates now; whole-org clones make this more likely)
 
 ## Phase 3: Polish and release
 

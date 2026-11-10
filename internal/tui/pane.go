@@ -8,6 +8,8 @@ import (
 	"charm.land/bubbles/v2/list"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
+
+	"github.com/pborenstein/gh-repopotamus/internal/github"
 )
 
 var (
@@ -288,6 +290,24 @@ func (p pane) chosen() []row {
 	if len(out) == 0 {
 		if r, ok := p.list.SelectedItem().(rowItem); ok {
 			out = append(out, r.row)
+		}
+	}
+	return out
+}
+
+// cloneTargets returns the selected repos, or every repo the filter and
+// toggles show if nothing is selected. Unlike chosen, there is no fallback
+// to the cursor row: with nothing selected you clone the whole owner.
+func (p pane) cloneTargets() []github.Repo {
+	var out []github.Repo
+	for _, r := range p.rows {
+		if p.selected[r.key()] {
+			out = append(out, r.repo)
+		}
+	}
+	if len(out) == 0 {
+		for _, it := range p.list.VisibleItems() {
+			out = append(out, it.(rowItem).repo)
 		}
 	}
 	return out

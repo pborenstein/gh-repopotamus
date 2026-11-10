@@ -141,3 +141,31 @@ Architectural decisions for this project. Search with `grep -i "keyword" docs/DE
 **Alternatives considered**: A linear owners→repos→confirm flow (the first build). Confirm-and-transfer on each `>` (immediate, but no chance to look over a whole session's moves first).
 
 **Consequences**: The confirm and progress screens become one review/run screen. `move.NewPlan` still builds the plans, against the destinations' real repos, so its collision skips remain as a backstop. Repo lists are cached per owner for the session.
+
+---
+
+### DEC-011: Cloning repos locally (2026-11-10)
+
+**Status**: Active
+
+**Context**: Philip wanted local copies of an owner's repos. For an owner with a mix of unrelated repos, they want a chosen few; for an owner whose repos belong together, all of them.
+
+**Decision**: `internal/clone` builds a plan (one `DIR/REPO` folder per repo) and runs `gh repo clone` for each item through an injected func, continuing after failures. A repo is skipped at plan time if `DIR/REPO` already exists or the name isn't in the owner. Selection: the CLI `clone OWNER` picks repos exactly as `move` does, and with no names or filters clones the whole owner. The TUI's `c` clones the active pane's selection, or every repo the pane shows (after the filter and hide toggles) if nothing is selected. Unlike `>`, there is no fallback to the cursor row. DIR defaults to the current directory. It can be set with `--dir` (CLI) or `--clone-dir` (TUI launch), or with `d` on the TUI's clone review. `~` and relative paths are accepted; a path that is a file is refused.
+
+**Alternatives considered**: Cursor-row fallback like `>` (clone-all would need `a` then `c`). A separate key for clone-all. Clones under `DIR/OWNER/REPO` (Philip chose flat). An `--all` guard like DEC-008 (dropped: cloning changes nothing on GitHub, and the y/N prompt still applies).
+
+**Consequences**: `gh repo clone` brings gh's auth, protocol setting and fork upstreams. Clones run one at a time. Aborting mid-clone can leave a partial folder behind. Finishing a clone in the TUI returns to the browser, since GitHub state hasn't changed.
+
+---
+
+### DEC-012: Everything works from the CLI and the TUI (2026-11-10)
+
+**Status**: Active
+
+**Context**: Clone was first built TUI-only. Philip mostly works on the command line ("I'm not a TUI guy usually").
+
+**Decision**: Every feature ships with both a CLI command or flag and a TUI key. The logic lives in `internal/` and both front ends call it.
+
+**Alternatives considered**: TUI-first, with CLI support added on request.
+
+**Consequences**: Features take a little more wiring. The CLI is a first-class interface, not a fallback.

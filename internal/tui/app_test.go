@@ -8,6 +8,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
+	"github.com/pborenstein/gh-repopotamus/internal/clone"
 	"github.com/pborenstein/gh-repopotamus/internal/github"
 	"github.com/pborenstein/gh-repopotamus/internal/move"
 )
@@ -18,6 +19,7 @@ type harness struct {
 	t         *testing.T
 	a         app
 	transfers []string
+	clones    []string
 }
 
 func newHarness(t *testing.T) *harness {
@@ -28,6 +30,15 @@ func newHarness(t *testing.T) *harness {
 	h.a.transfer = func(owner, name, to string) error {
 		h.transfers = append(h.transfers, owner+"/"+name+"->"+to)
 		if name == "beta" {
+			return errors.New("boom")
+		}
+		return nil
+	}
+	h.a.startDir, h.a.cloneDir = "/src", "/src"
+	h.a.exists = func(path string) bool { return path == "/src/Shared" }
+	h.a.cloneRepo = func(fullName, dir string) error {
+		h.clones = append(h.clones, fullName+"->"+dir)
+		if fullName == "me/beta" {
 			return errors.New("boom")
 		}
 		return nil
@@ -62,7 +73,8 @@ func run(cmd tea.Cmd) []tea.Msg {
 			out = append(out, run(c)...)
 		}
 		return out
-	case reposLoadedMsg, ownerChosenMsg, ownerCancelMsg, progressMsg, transfersDoneMsg:
+	case reposLoadedMsg, ownerChosenMsg, ownerCancelMsg, progressMsg, transfersDoneMsg,
+		cloneProgressMsg, clonesDoneMsg:
 		return []tea.Msg{msg}
 	}
 	return nil
@@ -176,5 +188,92 @@ func TestBrowserFitsScreen(t *testing.T) {
 		if got := strings.Count(h.a.View().Content, "\n") + 1; got != height {
 			t.Errorf("terminal height %d: view is %d lines", height, got)
 		}
+	}
+}
+
+// With nothing selected, c clones every repo the pane shows. A folder that
+// already exists is skipped, and finishing returns to the browser.
+func TestCloneAllShown(t *testing.T) {
+	h := newHarness(t)
+	h.keys("enter", "tab", "c")
+	if h.a.mode != modeCloneReview {
+		t.Fatalf("after c: mode=%v status=%q", h.a.mode, h.a.status)
+	}
+	p := h.a.clonePlan
+	if p.Count(clone.Pending) != 2 || p.Count(clone.Skipped) != 1 {
+		t.Fatalf("plan = %+v", p.Items)
+	}
+
+	h.keys("y")
+	if h.a.mode != modeCloneDone {
+		t.Fatalf("after y: mode=%v", h.a.mode)
+	}
+	if got := strings.Join(h.clones, " "); got != "me/alpha->/src/alpha me/beta->/src/beta" {
+		t.Errorf("clones = %s", got)
+	}
+
+	h.keys("x")
+	if h.a.mode != modeBrowse || h.a.status != "1 cloned, 1 failed, 1 skipped." {
+		t.Errorf("after done: mode=%v status=%q", h.a.mode, h.a.status)
+	}
+}
+
+// With a selection, c clones only the selection. A repo queued into the
+// pane is cloned from the owner it lives in today.
+func TestCloneSelected(t *testing.T) {
+	h := newHarness(t)
+	h.keys("enter", "tab", ">", "tab") // queue alpha to org-a, go to org-a
+	h.keys("space", "c")               // select +alpha (first row)
+	if h.a.mode != modeCloneReview {
+		t.Fatalf("after c: mode=%v status=%q", h.a.mode, h.a.status)
+	}
+	items := h.a.clonePlan.Items
+	if len(items) != 1 || items[0].FullName() != "me/alpha" {
+		t.Errorf("plan = %+v", items)
+	}
+}
+
+func TestCloneReviewEscReturns(t *testing.T) {
+	h := newHarness(t)
+	h.keys("enter", "tab", "c", "esc")
+	if h.a.mode != modeBrowse || len(h.clones) != 0 {
+		t.Fatalf("mode=%v clones=%v", h.a.mode, h.clones)
+	}
+}
+
+// d edits the clone directory. A relative path starts from where the app
+// was started, and the plan is rebuilt, so skips match the new directory.
+func TestCloneChangeDir(t *testing.T) {
+	h := newHarness(t)
+	h.keys("enter", "tab", "c", "d")
+	if !h.a.editingDir || h.a.dirInput.Value() != "/src" {
+		t.Fatalf("editing=%v value=%q", h.a.editingDir, h.a.dirInput.Value())
+	}
+	h.a.dirInput.SetValue("sub")
+	h.keys("2", "enter")
+	if h.a.editingDir || h.a.cloneDir != "/src/sub2" {
+		t.Fatalf("editing=%v dir=%q status=%q", h.a.editingDir, h.a.cloneDir, h.a.status)
+	}
+	// /src/Shared existed; /src/sub2/Shared doesn't.
+	if p := h.a.clonePlan; p.Dir != "/src/sub2" || p.Count(clone.Pending) != 3 {
+		t.Errorf("plan = %s %+v", p.Dir, p.Items)
+	}
+
+	// A file is refused and editing continues; esc keeps the old directory.
+	h.keys("d")
+	h.a.dirInput.SetValue("/etc/hosts")
+	h.keys("enter")
+	if !h.a.editingDir || !strings.Contains(h.a.status, "not a directory") {
+		t.Errorf("editing=%v status=%q", h.a.editingDir, h.a.status)
+	}
+	h.keys("esc")
+	if h.a.editingDir || h.a.cloneDir != "/src/sub2" || h.a.mode != modeCloneReview {
+		t.Errorf("after esc: editing=%v dir=%q mode=%v", h.a.editingDir, h.a.cloneDir, h.a.mode)
+	}
+
+	// The choice holds for the next clone.
+	h.keys("esc", "c")
+	if h.a.clonePlan.Dir != "/src/sub2" {
+		t.Errorf("next plan dir = %q", h.a.clonePlan.Dir)
 	}
 }

@@ -49,10 +49,12 @@ main.go                 entry point: calls cmd.Execute()
 cmd/root.go             cobra root command (gh repopotamus)
 cmd/list.go             gh repopotamus list OWNER [-l]
 cmd/move.go             gh repopotamus move SRC DST [REPO...]
+cmd/clone.go            gh repopotamus clone OWNER [REPO...]
 cmd/tui.go              gh repopotamus (no args) / tui
-internal/github/        API layer: ListRepos (GraphQL), ListOwners and Transfer (REST)
+internal/github/        API layer: ListRepos (GraphQL), ListOwners and Transfer (REST), Clone (runs gh)
 internal/selection/     pure filter logic
 internal/move/          plan + Execute, shared by CLI and TUI
+internal/clone/         clone plan + Execute, shared by CLI and TUI
 internal/tui/           Bubble Tea models: app, pane, owner picker, queue, transfer runner
 go.mod / go.sum         dependencies and their checksums
 gh-repopotamus          built binary (gitignored)
@@ -87,6 +89,7 @@ gh-repopotamus          built binary (gitignored)
 - **Structs, not classes.** Methods attach to types: `func (r Repo) FullName() string`
 - **Pointers** (`*struct{...}`) are used where a value may be absent (`nil`). For example, `RepositoryOwner` is nil when the owner doesn't exist
 - **JSON mapping** is by field name, case-insensitive: the `IsArchived` field receives `"isArchived"`
+- **Import aliases.** `gh "github.com/cli/go-gh/v2"` imports that path under the name `gh`, like `import gh from "..."` in JS. Normally the name is the last path element, but here that's `v2`, so the alias gives it a readable name. `gh.Exec("repo", "clone", ...)` then runs the gh binary and returns its stdout and stderr
 - **Tabs for indentation.** `gofmt` enforces it. That's the Go convention, so the 2-space rule doesn't apply to `.go` files
 
 ## Bubble Tea in Node terms

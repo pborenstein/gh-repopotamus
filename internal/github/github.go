@@ -5,9 +5,12 @@ package github
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"strings"
 	"time"
 
+	gh "github.com/cli/go-gh/v2"
 	"github.com/cli/go-gh/v2/pkg/api"
 )
 
@@ -132,6 +135,19 @@ func Transfer(owner, repo, newOwner string) error {
 
 	path := fmt.Sprintf("repos/%s/%s/transfer", owner, repo)
 	return client.Post(path, bytes.NewReader(body), nil)
+}
+
+// Clone runs `gh repo clone fullName dir`, so gh handles auth, the protocol
+// setting and the upstream remote for forks.
+func Clone(fullName, dir string) error {
+	_, stderr, err := gh.Exec("repo", "clone", fullName, dir)
+	if err != nil {
+		if msg := strings.TrimSpace(stderr.String()); msg != "" {
+			return errors.New(msg)
+		}
+		return err
+	}
+	return nil
 }
 
 // Owner is an account repos can be moved from or to: the signed-in user or

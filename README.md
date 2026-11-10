@@ -84,6 +84,28 @@ gh repopotamus move my-org pborenstein --from-file repos.txt --yes
 
 To see which orgs you can use as SRC or DST, run `gh org list`.
 
+### clone
+
+```
+gh repopotamus clone OWNER [REPO...] [flags]
+```
+
+Clones repos into `DIR/REPO` with `gh repo clone`, so gh's auth, protocol setting and fork upstreams apply. Repos are chosen exactly as for `move` (names, `-`, `--from-file`, filters). With no names and no filters, every repo in OWNER is cloned. A repo is skipped if `DIR/REPO` already exists or the name isn't in OWNER.
+
+| Flag | Does |
+|------|------|
+| `--dir DIR` | clone into DIR (default: the current directory; `~` and relative paths work) |
+| `--dry-run` | print the plan and exit |
+| `-y`, `--yes` | skip the y/N prompt |
+
+```
+# Every non-archived repo in an org
+gh repopotamus clone my-org --dir ~/src/my-org --no-archived
+
+# A hand-picked few
+gh repopotamus clone pborenstein site-blog site-docs --dir ~/src
+```
+
 ## What happens
 
 1. Lists the repos in SRC and DST.
@@ -128,4 +150,4 @@ Project tracking lives in `docs/`: `CONTEXT.md` for current state, `IMPLEMENTATI
 
 ## Status
 
-The CLI works. A Bubble Tea TUI is next, followed by precompiled releases.
+The CLI (`list`, `move`, `clone`) and the two-pane TUI work, and every feature is available from both. Precompiled releases are next. The TUI's keys are listed on its help line.
